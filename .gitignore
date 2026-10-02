@@ -15,3 +15,13 @@ __pycache__/
 # Ignore generated resources
 /resources/generated
 /devutils/i18n-data
+
+# Local DRM experiments and private browser data
+/Local research/
+*.app/
+*.dylib
+*.app.zip
+/Helium DRM - Shareable.zip
+/devutils/macos/drm/Verified Widevine/
+/devutils/macos/drm/Backups/
+/devutils/macos/drm/Profile/

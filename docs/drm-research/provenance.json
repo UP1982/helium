@@ -1,0 +1,9 @@
+{
+  "upstream": "https://github.com/imputnet/helium",
+  "upstream_commit": "8bd1a6b30674101e2e6fd9b5e48eb8cad83b8474",
+  "import_date": "2026-10-02",
+  "case_study_revision": 3,
+  "tested_helium": "0.18.2.1",
+  "tested_widevine": "4.10.3112.0",
+  "purpose": "Private research; standalone tooling, no browser-source integration"
+}

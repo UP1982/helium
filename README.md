@@ -49,6 +49,12 @@ can be applied there too.
 
 [> See development docs in macOS repo](https://github.com/imputnet/helium-macos/blob/main/docs/building.md#development-build-and-environment)
 
+## Private DRM research
+
+This independent private source copy includes a [macOS DRM case study](docs/drm-research/README.md)
+and [standalone reproduction tools](devutils/macos/drm/README.md). These additions are experimental,
+not official Helium DRM support, and do not alter the browser build or installer.
+
 ## Contributing
 Before contributing to Helium, please read the guidelines in
 [CONTRIBUTING.md](CONTRIBUTING.md).
