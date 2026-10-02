@@ -1,1 +1,4 @@
 *.patch linguist-language=C++
+
+# Keep the research PDF byte-for-byte intact and display it as binary.
+/docs/drm-research/*.pdf binary

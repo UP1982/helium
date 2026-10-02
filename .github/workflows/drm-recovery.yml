@@ -1,0 +1,24 @@
+name: DRM recovery and cache fixtures
+
+on:
+  pull_request:
+    paths:
+      - 'devutils/macos/drm/**'
+      - '.github/workflows/drm-recovery.yml'
+  push:
+    paths:
+      - 'devutils/macos/drm/**'
+      - '.github/workflows/drm-recovery.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  recovery:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Test isolated recovery, caches, and injected failures
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: python3 -m unittest discover -s devutils/macos/drm -p 'test_*.py'
