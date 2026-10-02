@@ -204,6 +204,7 @@ class RecoveryTests(unittest.TestCase):
         harness = '''
 import importlib.util, os, signal, sys
 from pathlib import Path
+sys.path.insert(0, str(Path(sys.argv[1]).parent))
 spec = importlib.util.spec_from_file_location('repair', sys.argv[1])
 m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
 m.APP = Path(sys.argv[2]); m.STATE = Path(sys.argv[3]); m.DATA = Path(sys.argv[4])

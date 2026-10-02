@@ -13,6 +13,8 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+from widevine_cache import select_module, validate_cache
+
 APP = Path('/Applications/Helium.app')
 DATA = Path.home()/'Library/Application Support/net.imput.helium'
 STATE = Path.home()/'Library/Application Support/Helium DRM Repair'
@@ -94,24 +96,8 @@ def prepare():
     run('/usr/bin/codesign', '--verify', '--deep', '--strict', str(APP))
     if 'TeamIdentifier=S4Q33XPHB4' not in signature(APP):
         raise RuntimeError('Helium is already modified or its signing identity changed. Install the current official release before repairing it.')
-    versions = []
-    for directory in (DATA/'WidevineCdm', STATE/'Verified Widevine'):
-        if directory.exists():
-            versions.extend(p for p in directory.iterdir() if p.name.replace('.','').isdigit() and (p/'_platform_specific/mac_arm64/libwidevinecdm.dylib').exists())
-    versions.sort(key=lambda p: tuple(map(int,p.name.split('.'))))
-    if not versions:
-        raise RuntimeError('No installed arm64 Widevine module was found.')
-    module = versions[-1]
-    lib = module/'_platform_specific/mac_arm64/libwidevinecdm.dylib'
-    run('/usr/bin/codesign', '--verify', '--strict', str(lib))
-    if 'TeamIdentifier=EQHXZ8M8AV' not in signature(lib):
-        raise RuntimeError('Widevine does not have its expected Google signature.')
     STATE.mkdir(parents=True,exist_ok=True)
-    cached = STATE/'Verified Widevine'/module.name
-    if not cached.exists():
-        cached.parent.mkdir(exist_ok=True)
-        shutil.copytree(module,cached,symlinks=True)
-    module = cached
+    module = select_module(DATA/'WidevineCdm', STATE/'Verified Widevine')
     with tempfile.TemporaryDirectory(prefix='stage-',dir=STATE) as temp:
         stage=(Path(temp)/'Helium.app').resolve()
         shutil.copytree(APP,stage,symlinks=True)
@@ -121,6 +107,7 @@ def prepare():
         if bundled.exists():
             raise RuntimeError('Official Helium now bundles Widevine. Reassess the need for this patch.')
         shutil.copytree(module,bundled,symlinks=True)
+        validate_cache(bundled, module.name)
         for item in list((version/'Helpers').glob('*.app'))+[framework,stage]:
             original=APP/item.relative_to(stage)
             r=subprocess.run(['/usr/bin/codesign','-d','--xml','--entitlements','-',str(original)],capture_output=True,check=True)

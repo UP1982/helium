@@ -57,10 +57,45 @@ a staging directory beside the app; there is no unsafe rename fallback.
 Run the isolated regression suite on macOS:
 
 ```sh
-PYTHONDONTWRITEBYTECODE=1 python3 test_repair_helium.py
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s . -p 'test_*.py'
 ```
 
 Tests use temporary app/profile fixtures and mocked signing/process commands.
 They exercise the real macOS directory exchange, partial copies, exceptions,
 keyboard interrupts, abrupt process termination, process guards, pointer-write
 failures, rollback, and retry. They do not launch Helium or change security settings.
+
+## Complete Widevine caches
+
+Both preparation and the Chrome-copy helper use `widevine_cache.py`. Keep this
+file beside the other Python scripts. A module needs a parseable Widevine
+manifest, a matching numeric version and CDM compatibility fields, and a nonempty
+arm64 library with the expected Google signature. Module trees must contain
+ordinary files/directories, without symbolic links or special files.
+
+New caches are copied into a unique hidden sibling directory. The tools verify
+that every source file and directory was copied, that file SHA-256 hashes match,
+and that the source did not change during copying. They write a completeness
+record and revalidate the staged tree before renaming it into the final version
+path. A publication lock serializes the two helpers and is released automatically
+if a process terminates. A failed copy never becomes a selectable cache.
+
+Every reuse checks the manifest, signature, and complete recorded inventory.
+Legacy caches without a completeness record, malformed manifests, missing files,
+or changed files are rebuilt from a valid local source. An invalid old cache is
+preserved under `.rejected-*` only after its replacement passes validation. A
+complete cache with different contents for the same version is preserved and
+reported as a conflict for investigation.
+
+Preparation can rebuild from the installed profile component. If only an invalid
+or legacy cache remains, it stops before staging an app and asks you to rerun
+`copy_widevine_from_chrome.py` against official Chrome. It never invents a
+completeness record from an old cache's remaining files. A complete recorded cache
+can still be used when its original source is unavailable. Preparation also checks
+the copied module inside the staged app before signing that app.
+
+Abrupt termination may leave `.staging-*` or `.rejected-*` directories, which are
+ignored during version selection. Retry uses a new staging directory. The record
+proves consistency with the selected local source, not playback compatibility or
+protection against an actor who can rewrite both the cache and its record.
+Power-loss durability and CDM compatibility with future releases remain unverified.
