@@ -1,5 +1,7 @@
 # Helium DRM research
 
+**AI-created, unofficial workaround.** Codex wrote these research materials and reproduction tools during a user-authorized troubleshooting session. The goal is to use one Helium installation for everyday browsing and DRM playback instead of maintaining a separate Helium test copy. This is not official Helium support, a vendor-signed build, or a complete source-level DRM integration. The workaround locally re-signs the app and relaxes macOS library validation; credential/passkey compatibility and future-update behavior remain unverified. A verified Google-signed Widevine module must be sourced locally and is not distributed here.
+
 This private repository preserves the upstream Helium source history and adds a local macOS DRM case study and standalone reproduction tools. It is an independent private copy, not an official Helium distribution or a GitHub fork-network member.
 
 - [Editable case study, revision 3](Helium-Crunchyroll-Case-Study.md)

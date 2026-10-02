@@ -1,5 +1,7 @@
 # Experimental Helium DRM reproduction tools (macOS arm64)
 
+**AI-created, unofficial workaround.** Codex wrote these research materials and reproduction tools during a user-authorized troubleshooting session. The goal is to use one Helium installation for everyday browsing and DRM playback instead of maintaining a separate Helium test copy. This is not official Helium support, a vendor-signed build, or a complete source-level DRM integration. The workaround locally re-signs the app and relaxes macOS library validation; credential/passkey compatibility and future-update behavior remain unverified. A verified Google-signed Widevine module must be sourced locally and is not distributed here.
+
 These opt-in tools reproduce a local October 2, 2026 experiment. They are not part of Helium's build, installer, updater, or launch path. See the [case study](../../../docs/drm-research/Helium-Crunchyroll-Case-Study.md) for results, limitations, and security tradeoffs.
 
 Requires an official `/Applications/Helium.app`, Apple silicon macOS, Python 3 on PATH, signing tools supplied by macOS, sufficient backup space, and a locally installed official Google Chrome with bundled arm64 Widevine.
