@@ -1,7 +1,7 @@
 # Restoring Crunchyroll Playback in Helium on macOS
 ## A reproducible Widevine and DNS case study
 
-**Prepared by Codex from a user-authorized local troubleshooting session**  
+**Prepared by Codex from a user-authorized local troubleshooting session**
 October 2, 2026 | Apple silicon macOS | Technical report, revision 3
 
 ### Abstract
