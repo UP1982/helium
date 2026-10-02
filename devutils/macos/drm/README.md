@@ -27,3 +27,40 @@ The patch replaces vendor app signatures with local ad-hoc signatures and relaxe
 The original experiment used Helium 0.18.2.1 and Widevine 4.10.3112.0. The repository's upstream source revision may be newer; these tools have not been validated against arbitrary later releases. They stop if the source is modified, its vendor identity differs, or official Helium already bundles Widevine. A new release requires reassessment and playback verification.
 
 Known implementation limit: the preparation/application comparison hashes the main executable rather than the complete app tree. Apply promptly after preparation and stop if the app changes. Restore may select an older application backup; prefer a current official release when needed. No browser/profile restoration is run automatically by cloning this repository.
+
+## Recovery safety and isolated tests
+
+Apply records a complete, verified app and closed-profile backup using an atomic,
+flushed pointer update **before** replacing the app. Restore copies the selected
+backup to a unique staging directory beside the installed app and verifies it
+before replacement. Both operations use macOS `RENAME_SWAP`: a failed copy,
+unsupported filesystem, or interrupted copy leaves the installed app in place.
+After replacement, the previous app stays in the printed `.helium-apply-*` or
+`.helium-restore-*` directory; a verification error triggers an atomic rollback.
+The full backup and current profile are retained.
+
+If interrupted, inspect the printed staging location before deleting anything.
+Before the exchange it can contain an incomplete copy; after the exchange it
+contains the previous installation. These directories are intentionally retained,
+and retries use new directories. `latest-backup.txt` continues to select the
+verified backup even if apply stops after recording it. Do not launch retained
+copies while repairing: all Helium executables and helpers, at any location,
+block apply/restore, and process inspection failure also stops the operation.
+
+Keep all browser copies closed throughout the procedure. Process checks occur
+before backup and again before replacement, but cannot prevent another process
+from launching between checks. This is not a lock against simultaneous repair
+commands, and it does not guarantee recovery from hardware failure or power loss.
+Atomic exchange requires a supporting macOS filesystem and permission to create
+a staging directory beside the app; there is no unsafe rename fallback.
+
+Run the isolated regression suite on macOS:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 python3 test_repair_helium.py
+```
+
+Tests use temporary app/profile fixtures and mocked signing/process commands.
+They exercise the real macOS directory exchange, partial copies, exceptions,
+keyboard interrupts, abrupt process termination, process guards, pointer-write
+failures, rollback, and retry. They do not launch Helium or change security settings.

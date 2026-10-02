@@ -2,6 +2,9 @@
 """Prepare, apply, or restore the locally verified Helium DRM workaround."""
 import argparse
 import datetime
+import ctypes
+import os
+import re
 import hashlib
 import json
 import plistlib
@@ -28,9 +31,64 @@ def sha(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 def ensure_closed():
-    commands = run('/bin/ps', 'ax', '-o', 'command=').splitlines()
-    if any(c.startswith(str(APP/'Contents/MacOS/Helium')) for c in commands):
-        raise RuntimeError('Quit your main Helium first. This tool does not close your tabs for you.')
+    # comm contains the executable, without arguments. Check the executable name
+    # regardless of bundle location, including orphaned Chromium helpers.
+    executables = run('/bin/ps', 'ax', '-o', 'comm=').splitlines()
+    if any(re.fullmatch(r'Helium(?: Helper(?: \([^)]+\))?)?',
+                        Path(c.strip()).name) for c in executables):
+        raise RuntimeError('Quit all Helium copies and helpers first. This tool does not close your tabs for you.')
+
+
+def record_backup(backup):
+    # Never truncate the existing pointer, and fail before changing the app if
+    # persistence fails. Only verified, complete backups reach this function.
+    with tempfile.NamedTemporaryFile(mode='w', prefix='backup-pointer-', dir=STATE,
+                                     delete=False) as pointer:
+        temporary = Path(pointer.name)
+        try:
+            pointer.write(str(backup.resolve()) + '\n')
+            pointer.flush()
+            os.fsync(pointer.fileno())
+        except BaseException:
+            temporary.unlink(missing_ok=True)
+            raise
+    try:
+        temporary.replace(STATE/'latest-backup.txt')
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def exchange_apps(first, second):
+    # macOS RENAME_SWAP exchanges both names in one filesystem operation. There
+    # is no interval with APP missing, even if the process is killed abruptly.
+    libc = ctypes.CDLL('/usr/lib/libSystem.B.dylib', use_errno=True)
+    exchange = libc.renamex_np
+    exchange.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_uint]
+    exchange.restype = ctypes.c_int
+    if exchange(os.fsencode(first), os.fsencode(second), 0x00000002):
+        error = ctypes.get_errno()
+        raise OSError(error, os.strerror(error))
+
+
+def replace_app(source, label, clear_attributes=False):
+    # A unique sibling stages on the app's volume. Keep this directory on every
+    # failure: after an exchange it holds the previous, operational installation.
+    directory = Path(tempfile.mkdtemp(prefix='.helium-' + label + '-', dir=APP.parent))
+    incoming = directory/'Helium.app'
+    print('Recovery/staging location:', incoming, flush=True)
+    shutil.copytree(source, incoming, symlinks=True)
+    if clear_attributes:
+        for attr in ('com.apple.FinderInfo', 'com.apple.ResourceFork'):
+            subprocess.run(['/usr/bin/xattr', '-rd', attr, str(incoming)], capture_output=True)
+    run('/usr/bin/codesign', '--verify', '--deep', '--strict', str(incoming))
+    ensure_closed()
+    exchange_apps(APP, incoming)
+    try:
+        run('/usr/bin/codesign', '--verify', '--deep', '--strict', str(APP))
+    except BaseException:
+        exchange_apps(APP, incoming)
+        raise
+    print('Previous installation retained at:', incoming)
 
 def prepare():
     run('/usr/bin/codesign', '--verify', '--deep', '--strict', str(APP))
@@ -91,39 +149,23 @@ def apply():
         raise RuntimeError('Helium changed since preparation. Prepare again.')
     run('/usr/bin/codesign','--verify','--deep','--strict',str(STAGED))
     stamp=datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
-    backup=STATE/('Backup '+stamp);backup.mkdir()
+    backup=Path(tempfile.mkdtemp(prefix='Backup '+stamp+'-', dir=STATE))
     # Back up the full profile only after the browser is closed, including SQLite WALs.
     shutil.copytree(DATA,backup/'User Data',symlinks=True)
     shutil.copytree(APP,backup/'Helium.app',symlinks=True)
     run('/usr/bin/codesign','--verify','--deep','--strict',str(backup/'Helium.app'))
-    # Stage on the same volume for a rename; keep the previous app intact on failure.
-    incoming=APP.with_name('Helium DRM Replacement.app')
-    if incoming.exists():raise RuntimeError('An unfinished replacement already exists in Applications.')
-    shutil.copytree(STAGED,incoming,symlinks=True)
-    for attr in ('com.apple.FinderInfo','com.apple.ResourceFork'):
-        subprocess.run(['/usr/bin/xattr','-rd',attr,str(incoming)],capture_output=True)
-    run('/usr/bin/codesign','--verify','--deep','--strict',str(incoming))
-    old=STATE/('Replaced Helium '+stamp+'.app')
-    APP.rename(old)
-    try:
-        incoming.rename(APP)
-        run('/usr/bin/codesign','--verify','--deep','--strict',str(APP))
-    except Exception:
-        if APP.exists():APP.rename(STATE/('Failed Helium '+stamp+'.app'))
-        old.rename(APP)
-        raise
-    (STATE/'latest-backup.txt').write_text(str(backup))
+    ensure_closed()
+    record_backup(backup)
+    replace_app(STAGED, 'apply', clear_attributes=True)
     print('DRM patch applied. Normal Keychain access and the existing profile are retained.')
     print('App and full profile backup:',backup)
 
 def restore():
     ensure_closed()
-    backup=Path((STATE/'latest-backup.txt').read_text())
+    backup=Path((STATE/'latest-backup.txt').read_text().strip())
     saved=backup/'Helium.app'
     run('/usr/bin/codesign','--verify','--deep','--strict',str(saved))
-    stamp=datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
-    APP.rename(STATE/('Removed patch '+stamp+'.app'))
-    shutil.copytree(saved,APP,symlinks=True)
+    replace_app(saved, 'restore')
     print('Original app restored. Your current profile was not rolled back; its backup remains available.')
 
 if __name__=='__main__':
