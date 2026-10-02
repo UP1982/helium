@@ -5,7 +5,7 @@
   "case_study_revision": 3,
   "tested_helium": "0.18.2.1",
   "tested_widevine": "4.10.3112.0",
-  "purpose": "Private research; standalone tooling, no browser-source integration",
+  "purpose": "Public experimental fork branch for review; AI-created standalone tooling, no browser-source integration",
   "authorship": "AI-created by Codex during user-authorized troubleshooting",
   "one_browser_goal": "One Helium installation for everyday browsing and protected playback; no separate test browser required"
 }
